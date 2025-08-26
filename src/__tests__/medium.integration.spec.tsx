@@ -14,6 +14,7 @@ import {
 import App from '../App';
 import { server } from '../setupTests';
 import { Event } from '../types';
+import { debug } from 'vitest-preview';
 
 const theme = createTheme();
 
@@ -408,14 +409,16 @@ describe('반복 일정 기능', () => {
 
     // 카테고리 선택
     await user.click(screen.getByLabelText('카테고리'));
-    await user.click(screen.getByText('개인'));
+    await user.click(within(screen.getByLabelText('카테고리')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: '개인-option' }));
 
     // 반복 설정 활성화
     await user.click(screen.getByLabelText('반복 일정'));
 
     // 반복 유형 선택 (매일)
     await user.click(screen.getByLabelText('반복 유형'));
-    await user.click(screen.getByText('매일'));
+    await user.click(within(screen.getByLabelText('반복 유형')).getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: '매일-option' }));
 
     // 종료일 설정
     await user.type(screen.getByLabelText('반복 종료일'), '2025-10-03');
