@@ -1,4 +1,12 @@
-import { Notifications, ChevronLeft, ChevronRight, Delete, Edit, Close } from '@mui/icons-material';
+import {
+  Notifications,
+  ChevronLeft,
+  ChevronRight,
+  Delete,
+  Edit,
+  Close,
+  Repeat,
+} from '@mui/icons-material';
 import {
   Alert,
   AlertTitle,
@@ -34,9 +42,9 @@ import { useCalendarView } from './hooks/useCalendarView.ts';
 import { useEventForm } from './hooks/useEventForm.ts';
 import { useEventOperations } from './hooks/useEventOperations.ts';
 import { useNotifications } from './hooks/useNotifications.ts';
+import { useRepeatEvent } from './hooks/useRepeatEvent.ts';
 import { useSearch } from './hooks/useSearch.ts';
-// import { Event, EventForm, RepeatType } from './types';
-import { Event, EventForm } from './types';
+import { Event, EventForm, RepeatType } from './types';
 import {
   formatDate,
   formatMonth,
@@ -77,11 +85,11 @@ function App() {
     isRepeating,
     setIsRepeating,
     repeatType,
-    // setRepeatType,
+    setRepeatType,
     repeatInterval,
-    // setRepeatInterval,
+    setRepeatInterval,
     repeatEndDate,
-    // setRepeatEndDate,
+    setRepeatEndDate,
     notificationTime,
     setNotificationTime,
     startTimeError,
@@ -94,9 +102,30 @@ function App() {
     editEvent,
   } = useEventForm();
 
-  const { events, saveEvent, deleteEvent } = useEventOperations(Boolean(editingEvent), () =>
-    setEditingEvent(null)
+  const { events, saveEvent, deleteEvent, saveRepeatedEvents } = useEventOperations(
+    Boolean(editingEvent),
+    () => {
+      resetForm();
+      setEditingEvent(null);
+    }
   );
+
+  // 반복 일정 훅 추가
+  const { repeatedEvents, isValidRepeat } = useRepeatEvent({
+    title,
+    date,
+    startTime,
+    endTime,
+    description,
+    location,
+    category,
+    repeat: {
+      type: isRepeating ? repeatType : 'none',
+      interval: repeatInterval,
+      endDate: repeatEndDate || undefined,
+    },
+    notificationTime,
+  });
 
   const { notifications, notifiedEvents, setNotifications } = useNotifications(events);
   const { view, setView, currentDate, holidays, navigate } = useCalendarView();
@@ -140,7 +169,22 @@ function App() {
       setOverlappingEvents(overlapping);
       setIsOverlapDialogOpen(true);
     } else {
-      await saveEvent(eventData);
+      // 반복 일정인 경우와 단일 일정인 경우 구분
+      if (isRepeating && !editingEvent && repeatedEvents.length > 0) {
+        // 새로운 반복 일정 생성
+        await saveRepeatedEvents(repeatedEvents);
+      } else {
+        // 기존 단일 일정 저장 또는 반복 일정 수정 시 단일 일정으로 변경
+        const finalEventData = {
+          ...eventData,
+          repeat: {
+            type: editingEvent ? 'none' : eventData.repeat.type, // 수정 시에는 단일 일정으로
+            interval: eventData.repeat.interval,
+            endDate: eventData.repeat.endDate,
+          },
+        };
+        await saveEvent(finalEventData);
+      }
       resetForm();
     }
   };
@@ -288,6 +332,9 @@ function App() {
                                 >
                                   <Stack direction="row" spacing={1} alignItems="center">
                                     {isNotified && <Notifications fontSize="small" />}
+                                    {event.repeat.type !== 'none' && (
+                                      <Repeat fontSize="small" color="primary" />
+                                    )}
                                     <Typography
                                       variant="caption"
                                       noWrap
@@ -477,6 +524,23 @@ function App() {
             </Stack>
           )}
 
+          {/* 반복 일정 미리보기 */}
+          {isRepeating && repeatedEvents.length > 0 && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              <Typography variant="body2">
+                <strong>{repeatedEvents.length}개의 반복 일정이 생성됩니다.</strong>
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                처음 5개 날짜:{' '}
+                {repeatedEvents
+                  .slice(0, 5)
+                  .map((e) => e.date)
+                  .join(', ')}
+                {repeatedEvents.length > 5 && '...'}
+              </Typography>
+            </Alert>
+          )}
+
           <Button
             data-testid="event-submit-button"
             onClick={addOrUpdateEvent}
@@ -541,6 +605,7 @@ function App() {
                   <Stack>
                     <Stack direction="row" spacing={1} alignItems="center">
                       {notifiedEvents.includes(event.id) && <Notifications color="error" />}
+                      {event.repeat.type !== 'none' && <Repeat color="primary" />}
                       <Typography
                         fontWeight={notifiedEvents.includes(event.id) ? 'bold' : 'normal'}
                         color={notifiedEvents.includes(event.id) ? 'error' : 'inherit'}
@@ -609,22 +674,30 @@ function App() {
             color="error"
             onClick={() => {
               setIsOverlapDialogOpen(false);
-              saveEvent({
-                id: editingEvent ? editingEvent.id : undefined,
-                title,
-                date,
-                startTime,
-                endTime,
-                description,
-                location,
-                category,
-                repeat: {
-                  type: isRepeating ? repeatType : 'none',
-                  interval: repeatInterval,
-                  endDate: repeatEndDate || undefined,
-                },
-                notificationTime,
-              });
+
+              // 반복 일정인 경우와 단일 일정인 경우 구분
+              if (isRepeating && !editingEvent && repeatedEvents.length > 0) {
+                // 새로운 반복 일정 생성
+                saveRepeatedEvents(repeatedEvents);
+              } else {
+                // 기존 단일 일정 저장 또는 반복 일정 수정 시 단일 일정으로 변경
+                saveEvent({
+                  id: editingEvent ? editingEvent.id : undefined,
+                  title,
+                  date,
+                  startTime,
+                  endTime,
+                  description,
+                  location,
+                  category,
+                  repeat: {
+                    type: editingEvent ? 'none' : isRepeating ? repeatType : 'none', // 수정 시에는 단일 일정으로
+                    interval: repeatInterval,
+                    endDate: repeatEndDate || undefined,
+                  },
+                  notificationTime,
+                });
+              }
             }}
           >
             계속 진행

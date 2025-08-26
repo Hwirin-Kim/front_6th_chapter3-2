@@ -340,3 +340,238 @@ it('notificationTime을 10으로 하면 지정 시간 10분 전 알람 텍스트
 
   expect(screen.getByText('10분 후 기존 회의 일정이 시작됩니다.')).toBeInTheDocument();
 });
+
+// 반복 일정 관련 통합 테스트
+describe('반복 일정 기능', () => {
+  it('매일 반복 일정을 생성하고 캘린더에 표시한다', async () => {
+    // 반복 일정 생성을 위한 API 모킹
+    server.use(
+      http.post('/api/events-list', async ({ request }) => {
+        const { events } = (await request.json()) as { events: Event[] };
+        return HttpResponse.json(events, { status: 201 });
+      }),
+      http.get('/api/events', () => {
+        const repeatedEvents = [
+          {
+            id: 'repeat-1',
+            title: '매일 운동',
+            date: '2025-10-01',
+            startTime: '07:00',
+            endTime: '08:00',
+            description: '매일 운동하기',
+            location: '헬스장',
+            category: '개인',
+            repeat: { type: 'daily', interval: 1, endDate: '2025-10-03', id: 'repeat-series-1' },
+            notificationTime: 10,
+          },
+          {
+            id: 'repeat-2',
+            title: '매일 운동',
+            date: '2025-10-02',
+            startTime: '07:00',
+            endTime: '08:00',
+            description: '매일 운동하기',
+            location: '헬스장',
+            category: '개인',
+            repeat: { type: 'daily', interval: 1, endDate: '2025-10-03', id: 'repeat-series-1' },
+            notificationTime: 10,
+          },
+          {
+            id: 'repeat-3',
+            title: '매일 운동',
+            date: '2025-10-03',
+            startTime: '07:00',
+            endTime: '08:00',
+            description: '매일 운동하기',
+            location: '헬스장',
+            category: '개인',
+            repeat: { type: 'daily', interval: 1, endDate: '2025-10-03', id: 'repeat-series-1' },
+            notificationTime: 10,
+          },
+        ];
+        return HttpResponse.json({ events: repeatedEvents });
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    // 일정 추가 버튼 클릭
+    await user.click(screen.getAllByText('일정 추가')[0]);
+
+    // 일정 정보 입력
+    await user.type(screen.getByLabelText('제목'), '매일 운동');
+    await user.type(screen.getByLabelText('날짜'), '2025-10-01');
+    await user.type(screen.getByLabelText('시작 시간'), '07:00');
+    await user.type(screen.getByLabelText('종료 시간'), '08:00');
+    await user.type(screen.getByLabelText('설명'), '매일 운동하기');
+    await user.type(screen.getByLabelText('위치'), '헬스장');
+
+    // 카테고리 선택
+    await user.click(screen.getByLabelText('카테고리'));
+    await user.click(screen.getByText('개인'));
+
+    // 반복 설정 활성화
+    await user.click(screen.getByLabelText('반복 일정'));
+
+    // 반복 유형 선택 (매일)
+    await user.click(screen.getByLabelText('반복 유형'));
+    await user.click(screen.getByText('매일'));
+
+    // 종료일 설정
+    await user.type(screen.getByLabelText('반복 종료일'), '2025-10-03');
+
+    // 미리보기 확인
+    expect(screen.getByText('3개의 반복 일정이 생성됩니다.')).toBeInTheDocument();
+    expect(
+      screen.getByText(/처음 5개 날짜: 2025-10-01, 2025-10-02, 2025-10-03/)
+    ).toBeInTheDocument();
+
+    // 일정 저장
+    await user.click(screen.getByTestId('event-submit-button'));
+
+    // 성공 메시지 확인
+    expect(await screen.findByText('3개의 반복 일정이 추가되었습니다.')).toBeInTheDocument();
+
+    // 캘린더에 반복 일정이 표시되는지 확인 (이벤트 리스트에서)
+    const eventList = screen.getByTestId('event-list');
+    expect(within(eventList).getByText('매일 운동')).toBeInTheDocument();
+    expect(within(eventList).getByText('반복: 1일마다 (종료: 2025-10-03)')).toBeInTheDocument();
+
+    // 반복 아이콘이 표시되는지 확인
+    const repeatIcons = screen.getAllByTestId('RepeatIcon');
+    expect(repeatIcons.length).toBeGreaterThan(0);
+  });
+
+  it('반복 일정을 수정하면 단일 일정으로 변경된다', async () => {
+    // 기존 반복 일정이 있는 상태로 시작
+    server.use(
+      http.get('/api/events', () => {
+        return HttpResponse.json({
+          events: [
+            {
+              id: 'repeat-1',
+              title: '매일 운동',
+              date: '2025-10-01',
+              startTime: '07:00',
+              endTime: '08:00',
+              description: '매일 운동하기',
+              location: '헬스장',
+              category: '개인',
+              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
+              notificationTime: 10,
+            },
+          ],
+        });
+      }),
+      http.put('/api/events/repeat-1', async ({ request }) => {
+        const updatedEvent = (await request.json()) as Event;
+        return HttpResponse.json(updatedEvent);
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    // 일정 로딩 대기
+    await screen.findByText('일정 로딩 완료!');
+
+    // 반복 일정 수정 버튼 클릭
+    const editButton = screen.getByLabelText('Edit event');
+    await user.click(editButton);
+
+    // 제목 수정
+    const titleInput = screen.getByLabelText('제목');
+    await user.clear(titleInput);
+    await user.type(titleInput, '수정된 운동');
+
+    // 일정 저장
+    await user.click(screen.getByTestId('event-submit-button'));
+
+    // 성공 메시지 확인
+    expect(await screen.findByText('일정이 수정되었습니다.')).toBeInTheDocument();
+
+    // 수정된 일정이 단일 일정으로 변경되었는지 확인
+    const eventList = screen.getByTestId('event-list');
+    expect(within(eventList).getByText('수정된 운동')).toBeInTheDocument();
+
+    // 반복 정보가 사라졌는지 확인
+    expect(within(eventList).queryByText(/반복:/)).not.toBeInTheDocument();
+  });
+
+  it('반복 일정을 삭제하면 해당 일정만 삭제된다', async () => {
+    // 기존 반복 일정이 있는 상태로 시작
+    server.use(
+      http.get('/api/events', () => {
+        return HttpResponse.json({
+          events: [
+            {
+              id: 'repeat-1',
+              title: '매일 운동',
+              date: '2025-10-01',
+              startTime: '07:00',
+              endTime: '08:00',
+              description: '매일 운동하기',
+              location: '헬스장',
+              category: '개인',
+              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
+              notificationTime: 10,
+            },
+            {
+              id: 'repeat-2',
+              title: '매일 운동',
+              date: '2025-10-02',
+              startTime: '07:00',
+              endTime: '08:00',
+              description: '매일 운동하기',
+              location: '헬스장',
+              category: '개인',
+              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
+              notificationTime: 10,
+            },
+          ],
+        });
+      }),
+      http.delete('/api/events/repeat-1', () => {
+        return HttpResponse.json({}, { status: 204 });
+      }),
+      http.get('/api/events', () => {
+        return HttpResponse.json({
+          events: [
+            {
+              id: 'repeat-2',
+              title: '매일 운동',
+              date: '2025-10-02',
+              startTime: '07:00',
+              endTime: '08:00',
+              description: '매일 운동하기',
+              location: '헬스장',
+              category: '개인',
+              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
+              notificationTime: 10,
+            },
+          ],
+        });
+      })
+    );
+
+    const { user } = setup(<App />);
+
+    // 일정 로딩 대기
+    await screen.findByText('일정 로딩 완료!');
+
+    // 처음에는 2개의 일정이 있음을 확인
+    const eventList = screen.getByTestId('event-list');
+    const events = within(eventList).getAllByText('매일 운동');
+    expect(events).toHaveLength(2);
+
+    // 첫 번째 일정 삭제 버튼 클릭
+    const deleteButtons = screen.getAllByLabelText('Delete event');
+    await user.click(deleteButtons[0]);
+
+    // 삭제 성공 메시지 확인
+    expect(await screen.findByText('일정이 삭제되었습니다.')).toBeInTheDocument();
+
+    // 한 개의 일정만 남았는지 확인 (해당 일정만 삭제됨)
+    const remainingEvents = within(eventList).getAllByText('매일 운동');
+    expect(remainingEvents).toHaveLength(1);
+  });
+});
