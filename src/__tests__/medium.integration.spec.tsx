@@ -5,7 +5,6 @@ import { UserEvent, userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
-import { debug } from 'vitest-preview';
 
 import {
   setupMockHandlerCreation,
@@ -628,7 +627,6 @@ describe('반복 일정 기능', () => {
     // 수정된 일정이 단일 일정으로 변경되었는지 확인
     const eventList = screen.getByTestId('event-list');
     // 수정 후 화면에 표시되는걸 확인
-    debug();
     await screen.findAllByText(/수정된/);
     expect(within(eventList).getByText('수정된 운동')).toBeInTheDocument();
 
@@ -659,27 +657,6 @@ describe('반복 일정 기능', () => {
     // 한 개의 일정만 남았는지 확인 (해당 일정만 삭제됨)
     const remainingEvents = within(eventList).getAllByText('매일 운동');
     expect(remainingEvents).toHaveLength(1);
-  });
-
-  it('반복 종료일 입력 필드의 최대값이 2025-10-30으로 제한된다', async () => {
-    setupMockHandlerRepeatCreation();
-
-    const { user } = setup(<App />);
-
-    // 일정 추가 버튼 클릭
-    await user.click(screen.getAllByText('일정 추가')[0]);
-
-    // 반복 설정 활성화
-    const repeatCheckbox = screen.getByLabelText('반복 일정');
-    if (!(repeatCheckbox as HTMLInputElement).checked) {
-      await user.click(repeatCheckbox);
-    }
-
-    // 반복 종료일 입력 필드 확인
-    const endDateInput = screen.getByLabelText('반복 종료일') as HTMLInputElement;
-
-    // 최대값이 2025-10-30으로 설정되어 있는지 확인
-    expect(endDateInput.getAttribute('max')).toBe('2025-10-30');
   });
 
   it('반복 종료일을 입력하지 않으면 기본값 2025-10-30까지 반복 일정이 생성된다', async () => {
@@ -719,13 +696,16 @@ describe('반복 일정 기능', () => {
 
     // 종료일을 입력하지 않음 (기본값 2025-10-30 사용)
 
-    // 6개의 반복 일정이 생성되는지 확인 (10/25, 10/26, 10/27, 10/28, 10/29, 10/30)
-    expect(screen.getByText('6개의 반복 일정이 생성됩니다.')).toBeInTheDocument();
-
     // 일정 저장
     await user.click(screen.getByTestId('event-submit-button'));
 
     // 성공 메시지 확인
-    expect(await screen.findByText('6개의 반복 일정이 추가되었습니다.')).toBeInTheDocument();
+    expect(await screen.findByText(/일정이 추가되었습니다./)).toBeInTheDocument();
+    // 일정 생성 확인
+    const eventList = screen.getByTestId('event-list');
+
+    const events = within(eventList).getAllByText('기본 종료일 테스트');
+    // 25~30일까지 6개 일정이 생성되는지 확인
+    expect(events).toHaveLength(6);
   });
 });

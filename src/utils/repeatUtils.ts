@@ -118,7 +118,7 @@ export const generateRepeatedEvents = (eventForm: EventForm): Event[] => {
   }
 
   const events: Event[] = [];
-  const endDate = repeat.endDate ? new Date(repeat.endDate) : new Date('2025-06-30');
+  const endDate = repeat.endDate ? new Date(repeat.endDate) : new Date('2025-10-30');
 
   let currentDate = new Date(startDate);
   const repeatId = generateRepeatId(eventForm.title);
