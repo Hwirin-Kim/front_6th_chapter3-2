@@ -111,7 +111,7 @@ function App() {
   );
 
   // 반복 일정 훅 추가
-  const { repeatedEvents, isValidRepeat } = useRepeatEvent({
+  const { repeatedEvents } = useRepeatEvent({
     title,
     date,
     startTime,
@@ -488,16 +488,29 @@ function App() {
           {isRepeating && (
             <Stack spacing={2}>
               <FormControl fullWidth>
-                <FormLabel>반복 유형</FormLabel>
+                <FormLabel id="repeat-label">반복 유형</FormLabel>
                 <Select
+                  aria-labelledby="repeat-label"
+                  aria-label="반복 유형"
                   size="small"
                   value={repeatType}
                   onChange={(e) => setRepeatType(e.target.value as RepeatType)}
                 >
-                  <MenuItem value="daily">매일</MenuItem>
-                  <MenuItem value="weekly">매주</MenuItem>
-                  <MenuItem value="monthly">매월</MenuItem>
-                  <MenuItem value="yearly">매년</MenuItem>
+                  <MenuItem value="none" aria-label="none-option">
+                    없음
+                  </MenuItem>
+                  <MenuItem value="daily" aria-label="daily-option">
+                    매일
+                  </MenuItem>
+                  <MenuItem value="weekly" aria-label="weekly-option">
+                    매주
+                  </MenuItem>
+                  <MenuItem value="monthly" aria-label="monthly-option">
+                    매월
+                  </MenuItem>
+                  <MenuItem value="yearly" aria-label="yearly-option">
+                    매년
+                  </MenuItem>
                 </Select>
               </FormControl>
               <Stack direction="row" spacing={2}>
@@ -512,8 +525,9 @@ function App() {
                   />
                 </FormControl>
                 <FormControl fullWidth>
-                  <FormLabel>반복 종료일</FormLabel>
+                  <FormLabel htmlFor="repeat-end-date">반복 종료일</FormLabel>
                   <TextField
+                    id="repeat-end-date"
                     size="small"
                     type="date"
                     value={repeatEndDate}
@@ -531,7 +545,7 @@ function App() {
                 <strong>{repeatedEvents.length}개의 반복 일정이 생성됩니다.</strong>
               </Typography>
               <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                처음 5개 날짜:{' '}
+                {repeatedEvents.length <= 5 ? '날짜' : '처음 5개 날짜'}:{' '}
                 {repeatedEvents
                   .slice(0, 5)
                   .map((e) => e.date)

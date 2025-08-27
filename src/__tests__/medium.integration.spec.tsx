@@ -5,16 +5,19 @@ import { UserEvent, userEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
+import { debug } from 'vitest-preview';
 
 import {
   setupMockHandlerCreation,
   setupMockHandlerDeletion,
   setupMockHandlerUpdating,
+  setupMockHandlerRepeatCreation,
+  setupMockHandlerRepeatUpdate,
+  setupMockHandlerRepeatDeletion,
 } from '../__mocks__/handlersUtils';
 import App from '../App';
 import { server } from '../setupTests';
 import { Event } from '../types';
-import { debug } from 'vitest-preview';
 
 const theme = createTheme();
 
@@ -345,54 +348,7 @@ it('notificationTime을 10으로 하면 지정 시간 10분 전 알람 텍스트
 // 반복 일정 관련 통합 테스트
 describe('반복 일정 기능', () => {
   it('매일 반복 일정을 생성하고 캘린더에 표시한다', async () => {
-    // 반복 일정 생성을 위한 API 모킹
-    server.use(
-      http.post('/api/events-list', async ({ request }) => {
-        const { events } = (await request.json()) as { events: Event[] };
-        return HttpResponse.json(events, { status: 201 });
-      }),
-      http.get('/api/events', () => {
-        const repeatedEvents = [
-          {
-            id: 'repeat-1',
-            title: '매일 운동',
-            date: '2025-10-01',
-            startTime: '07:00',
-            endTime: '08:00',
-            description: '매일 운동하기',
-            location: '헬스장',
-            category: '개인',
-            repeat: { type: 'daily', interval: 1, endDate: '2025-10-03', id: 'repeat-series-1' },
-            notificationTime: 10,
-          },
-          {
-            id: 'repeat-2',
-            title: '매일 운동',
-            date: '2025-10-02',
-            startTime: '07:00',
-            endTime: '08:00',
-            description: '매일 운동하기',
-            location: '헬스장',
-            category: '개인',
-            repeat: { type: 'daily', interval: 1, endDate: '2025-10-03', id: 'repeat-series-1' },
-            notificationTime: 10,
-          },
-          {
-            id: 'repeat-3',
-            title: '매일 운동',
-            date: '2025-10-03',
-            startTime: '07:00',
-            endTime: '08:00',
-            description: '매일 운동하기',
-            location: '헬스장',
-            category: '개인',
-            repeat: { type: 'daily', interval: 1, endDate: '2025-10-03', id: 'repeat-series-1' },
-            notificationTime: 10,
-          },
-        ];
-        return HttpResponse.json({ events: repeatedEvents });
-      })
-    );
+    setupMockHandlerRepeatCreation();
 
     const { user } = setup(<App />);
 
@@ -412,22 +368,27 @@ describe('반복 일정 기능', () => {
     await user.click(within(screen.getByLabelText('카테고리')).getByRole('combobox'));
     await user.click(screen.getByRole('option', { name: '개인-option' }));
 
-    // 반복 설정 활성화
-    await user.click(screen.getByLabelText('반복 일정'));
+    // 반복 설정 활성화 - 체크박스 상태를 먼저 확인
+    const repeatCheckbox = screen.getByLabelText('반복 일정');
+
+    // 체크박스가 이미 체크되어 있는지 확인
+    if (!(repeatCheckbox as HTMLInputElement).checked) {
+      await user.click(repeatCheckbox);
+    }
 
     // 반복 유형 선택 (매일)
     await user.click(screen.getByLabelText('반복 유형'));
     await user.click(within(screen.getByLabelText('반복 유형')).getByRole('combobox'));
-    await user.click(screen.getByRole('option', { name: '매일-option' }));
+    await user.click(screen.getByRole('option', { name: 'daily-option' }));
 
     // 종료일 설정
     await user.type(screen.getByLabelText('반복 종료일'), '2025-10-03');
 
-    // 미리보기 확인
+    // 일정 3개 생성 확인
     expect(screen.getByText('3개의 반복 일정이 생성됩니다.')).toBeInTheDocument();
-    expect(
-      screen.getByText(/처음 5개 날짜: 2025-10-01, 2025-10-02, 2025-10-03/)
-    ).toBeInTheDocument();
+
+    // 미리보기에서 3개 날짜가 표시되는지 확인 (동적 텍스트)
+    expect(screen.getByText(/날짜: 2025-10-01, 2025-10-02, 2025-10-03/)).toBeInTheDocument();
 
     // 일정 저장
     await user.click(screen.getByTestId('event-submit-button'));
@@ -437,8 +398,11 @@ describe('반복 일정 기능', () => {
 
     // 캘린더에 반복 일정이 표시되는지 확인 (이벤트 리스트에서)
     const eventList = screen.getByTestId('event-list');
-    expect(within(eventList).getByText('매일 운동')).toBeInTheDocument();
-    expect(within(eventList).getByText('반복: 1일마다 (종료: 2025-10-03)')).toBeInTheDocument();
+    const repeatEvents = within(eventList).getAllByText('매일 운동하기');
+    expect(repeatEvents).toHaveLength(3);
+
+    const repeatInfos = within(eventList).getAllByText('반복: 1일마다 (종료: 2025-10-03)');
+    expect(repeatInfos).toHaveLength(3);
 
     // 반복 아이콘이 표시되는지 확인
     const repeatIcons = screen.getAllByTestId('RepeatIcon');
@@ -446,31 +410,7 @@ describe('반복 일정 기능', () => {
   });
 
   it('반복 일정을 수정하면 단일 일정으로 변경된다', async () => {
-    // 기존 반복 일정이 있는 상태로 시작
-    server.use(
-      http.get('/api/events', () => {
-        return HttpResponse.json({
-          events: [
-            {
-              id: 'repeat-1',
-              title: '매일 운동',
-              date: '2025-10-01',
-              startTime: '07:00',
-              endTime: '08:00',
-              description: '매일 운동하기',
-              location: '헬스장',
-              category: '개인',
-              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
-              notificationTime: 10,
-            },
-          ],
-        });
-      }),
-      http.put('/api/events/repeat-1', async ({ request }) => {
-        const updatedEvent = (await request.json()) as Event;
-        return HttpResponse.json(updatedEvent);
-      })
-    );
+    setupMockHandlerRepeatUpdate();
 
     const { user } = setup(<App />);
 
@@ -494,6 +434,9 @@ describe('반복 일정 기능', () => {
 
     // 수정된 일정이 단일 일정으로 변경되었는지 확인
     const eventList = screen.getByTestId('event-list');
+    // 수정 후 화면에 표시되는걸 확인
+    debug();
+    await screen.findAllByText(/수정된/);
     expect(within(eventList).getByText('수정된 운동')).toBeInTheDocument();
 
     // 반복 정보가 사라졌는지 확인
@@ -501,60 +444,7 @@ describe('반복 일정 기능', () => {
   });
 
   it('반복 일정을 삭제하면 해당 일정만 삭제된다', async () => {
-    // 기존 반복 일정이 있는 상태로 시작
-    server.use(
-      http.get('/api/events', () => {
-        return HttpResponse.json({
-          events: [
-            {
-              id: 'repeat-1',
-              title: '매일 운동',
-              date: '2025-10-01',
-              startTime: '07:00',
-              endTime: '08:00',
-              description: '매일 운동하기',
-              location: '헬스장',
-              category: '개인',
-              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
-              notificationTime: 10,
-            },
-            {
-              id: 'repeat-2',
-              title: '매일 운동',
-              date: '2025-10-02',
-              startTime: '07:00',
-              endTime: '08:00',
-              description: '매일 운동하기',
-              location: '헬스장',
-              category: '개인',
-              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
-              notificationTime: 10,
-            },
-          ],
-        });
-      }),
-      http.delete('/api/events/repeat-1', () => {
-        return HttpResponse.json({}, { status: 204 });
-      }),
-      http.get('/api/events', () => {
-        return HttpResponse.json({
-          events: [
-            {
-              id: 'repeat-2',
-              title: '매일 운동',
-              date: '2025-10-02',
-              startTime: '07:00',
-              endTime: '08:00',
-              description: '매일 운동하기',
-              location: '헬스장',
-              category: '개인',
-              repeat: { type: 'daily', interval: 1, id: 'repeat-series-1' },
-              notificationTime: 10,
-            },
-          ],
-        });
-      })
-    );
+    setupMockHandlerRepeatDeletion();
 
     const { user } = setup(<App />);
 
