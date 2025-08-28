@@ -613,6 +613,12 @@ describe('반복 일정 기능', () => {
     const editButton = screen.getByLabelText('Edit event');
     await user.click(editButton);
 
+    // 반복 설정 비활성화 (반복 일정을 단일 일정으로 변경)
+    const repeatCheckbox = screen.getByLabelText('반복 일정');
+    if ((repeatCheckbox as HTMLInputElement).checked) {
+      await user.click(repeatCheckbox);
+    }
+
     // 제목 수정
     const titleInput = screen.getByLabelText('제목');
     await user.clear(titleInput);
