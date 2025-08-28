@@ -147,10 +147,10 @@ describe('useRepeatEvent', () => {
     expect(result.current.repeatedEvents[4].date).toBe('2024-01-05');
   });
 
-  it('종료일이 없는 경우 2025-06-30까지 생성한다', () => {
+  it('종료일이 없는 경우 2025-10-30까지 생성한다', () => {
     const noEndDateEventForm: EventForm = {
       ...mockEventForm,
-      date: '2025-06-28',
+      date: '2025-10-28',
       repeat: {
         type: 'daily',
         interval: 1,
@@ -161,9 +161,9 @@ describe('useRepeatEvent', () => {
     const { result } = renderHook(() => useRepeatEvent(noEndDateEventForm));
 
     expect(result.current.repeatedEvents).toHaveLength(3);
-    expect(result.current.repeatedEvents[0].date).toBe('2025-06-28');
-    expect(result.current.repeatedEvents[1].date).toBe('2025-06-29');
-    expect(result.current.repeatedEvents[2].date).toBe('2025-06-30');
+    expect(result.current.repeatedEvents[0].date).toBe('2025-10-28');
+    expect(result.current.repeatedEvents[1].date).toBe('2025-10-29');
+    expect(result.current.repeatedEvents[2].date).toBe('2025-10-30');
   });
 
   // 예외 상황 처리
