@@ -240,5 +240,160 @@ describe('repeatUtils', () => {
       expect(events[1].date).toBe('2025-10-29');
       expect(events[2].date).toBe('2025-10-30');
     });
+
+    it('매주 반복 일정을 올바르게 생성한다', () => {
+      const weeklyForm: EventForm = {
+        ...mockEventForm,
+        date: '2024-01-01', // 월요일
+        repeat: {
+          type: 'weekly',
+          interval: 1,
+          endDate: '2024-01-15',
+        },
+      };
+
+      const events = generateRepeatedEvents(weeklyForm);
+
+      expect(events).toHaveLength(3);
+      expect(events[0].date).toBe('2024-01-01'); // 1월 1일 (월)
+      expect(events[1].date).toBe('2024-01-08'); // 1월 8일 (월)
+      expect(events[2].date).toBe('2024-01-15'); // 1월 15일 (월)
+
+      // 모든 이벤트가 같은 반복 시리즈 ID를 가져야 함
+      const repeatId = events[0].repeat.id;
+      events.forEach((event) => {
+        expect(event.repeat.id).toBe(repeatId);
+        expect(event.repeat.type).toBe('weekly');
+      });
+    });
+
+    it('매월 반복 일정을 올바르게 생성한다', () => {
+      const monthlyForm: EventForm = {
+        ...mockEventForm,
+        date: '2024-01-15',
+        repeat: {
+          type: 'monthly',
+          interval: 1,
+          endDate: '2024-04-15',
+        },
+      };
+
+      const events = generateRepeatedEvents(monthlyForm);
+
+      expect(events).toHaveLength(4);
+      expect(events[0].date).toBe('2024-01-15');
+      expect(events[1].date).toBe('2024-02-15');
+      expect(events[2].date).toBe('2024-03-15');
+      expect(events[3].date).toBe('2024-04-15');
+
+      // 모든 이벤트가 같은 반복 시리즈 ID를 가져야 함
+      const repeatId = events[0].repeat.id;
+      events.forEach((event) => {
+        expect(event.repeat.id).toBe(repeatId);
+        expect(event.repeat.type).toBe('monthly');
+      });
+    });
+
+    it('매월 반복 시 2개월 간격으로 생성한다', () => {
+      const monthlyForm: EventForm = {
+        ...mockEventForm,
+        date: '2024-01-15',
+        repeat: {
+          type: 'monthly',
+          interval: 2,
+          endDate: '2024-07-15',
+        },
+      };
+
+      const events = generateRepeatedEvents(monthlyForm);
+
+      expect(events).toHaveLength(4);
+      expect(events[0].date).toBe('2024-01-15');
+      expect(events[1].date).toBe('2024-03-15');
+      expect(events[2].date).toBe('2024-05-15');
+      expect(events[3].date).toBe('2024-07-15');
+    });
+
+    it('매년 반복 일정을 올바르게 생성한다', () => {
+      const yearlyForm: EventForm = {
+        ...mockEventForm,
+        date: '2024-01-15',
+        repeat: {
+          type: 'yearly',
+          interval: 1,
+          endDate: '2027-01-15',
+        },
+      };
+
+      const events = generateRepeatedEvents(yearlyForm);
+
+      expect(events).toHaveLength(4);
+      expect(events[0].date).toBe('2024-01-15');
+      expect(events[1].date).toBe('2025-01-15');
+      expect(events[2].date).toBe('2026-01-15');
+      expect(events[3].date).toBe('2027-01-15');
+
+      // 모든 이벤트가 같은 반복 시리즈 ID를 가져야 함
+      const repeatId = events[0].repeat.id;
+      events.forEach((event) => {
+        expect(event.repeat.id).toBe(repeatId);
+        expect(event.repeat.type).toBe('yearly');
+      });
+    });
+
+    it('매년 반복 시 2년 간격으로 생성한다', () => {
+      const yearlyForm: EventForm = {
+        ...mockEventForm,
+        date: '2024-01-15',
+        repeat: {
+          type: 'yearly',
+          interval: 2,
+          endDate: '2030-01-15',
+        },
+      };
+
+      const events = generateRepeatedEvents(yearlyForm);
+
+      expect(events).toHaveLength(4);
+      expect(events[0].date).toBe('2024-01-15');
+      expect(events[1].date).toBe('2026-01-15');
+      expect(events[2].date).toBe('2028-01-15');
+      expect(events[3].date).toBe('2030-01-15');
+    });
+
+    it('매월 반복 시 종료일이 없으면 2025-10-30까지 생성한다', () => {
+      const monthlyForm: EventForm = {
+        ...mockEventForm,
+        date: '2025-08-15',
+        repeat: {
+          type: 'monthly',
+          interval: 1,
+        },
+      };
+
+      const events = generateRepeatedEvents(monthlyForm);
+
+      expect(events).toHaveLength(3);
+      expect(events[0].date).toBe('2025-08-15');
+      expect(events[1].date).toBe('2025-09-15');
+      expect(events[2].date).toBe('2025-10-15');
+    });
+
+    it('매년 반복 시 종료일이 없으면 2025-10-30까지 생성한다', () => {
+      const yearlyForm: EventForm = {
+        ...mockEventForm,
+        date: '2024-01-15',
+        repeat: {
+          type: 'yearly',
+          interval: 1,
+        },
+      };
+
+      const events = generateRepeatedEvents(yearlyForm);
+
+      expect(events).toHaveLength(2);
+      expect(events[0].date).toBe('2024-01-15');
+      expect(events[1].date).toBe('2025-01-15');
+    });
   });
 });
