@@ -170,20 +170,33 @@ function App() {
       setIsOverlapDialogOpen(true);
     } else {
       // 반복 일정인 경우와 단일 일정인 경우 구분
-      if (isRepeating && !editingEvent && repeatedEvents.length > 0) {
-        // 새로운 반복 일정 생성
-        await saveRepeatedEvents(repeatedEvents);
+      if (isRepeating && repeatedEvents.length > 0) {
+        if (editingEvent) {
+          // 기존 일정을 반복 일정으로 수정하는 경우
+          // 기존 일정을 삭제하고 새로운 반복 일정들을 생성
+          await deleteEvent(editingEvent.id);
+          await saveRepeatedEvents(repeatedEvents);
+        } else {
+          // 새로운 반복 일정 생성
+          await saveRepeatedEvents(repeatedEvents);
+        }
       } else {
-        // 기존 단일 일정 저장 또는 반복 일정 수정 시 단일 일정으로 변경
-        const finalEventData = {
-          ...eventData,
-          repeat: {
-            type: editingEvent ? 'none' : eventData.repeat.type, // 수정 시에는 단일 일정으로
-            interval: eventData.repeat.interval,
-            endDate: eventData.repeat.endDate,
-          },
-        };
-        await saveEvent(finalEventData);
+        // 단일 일정 저장 (새로 생성하거나 반복 일정을 단일로 수정)
+        if (editingEvent && editingEvent.repeat?.type !== 'none') {
+          // 반복 일정을 단일 일정으로 수정하는 경우 - 기존 로직 유지
+          const finalEventData = {
+            ...eventData,
+            repeat: {
+              type: 'none' as const,
+              interval: eventData.repeat.interval,
+              endDate: eventData.repeat.endDate,
+            },
+          };
+          await saveEvent(finalEventData);
+        } else {
+          // 일반적인 단일 일정 저장
+          await saveEvent(eventData);
+        }
       }
       resetForm();
     }
@@ -690,27 +703,56 @@ function App() {
               setIsOverlapDialogOpen(false);
 
               // 반복 일정인 경우와 단일 일정인 경우 구분
-              if (isRepeating && !editingEvent && repeatedEvents.length > 0) {
-                // 새로운 반복 일정 생성
-                saveRepeatedEvents(repeatedEvents);
+              if (isRepeating && repeatedEvents.length > 0) {
+                if (editingEvent) {
+                  // 기존 일정을 반복 일정으로 수정하는 경우
+                  // 기존 일정을 삭제하고 새로운 반복 일정들을 생성
+                  deleteEvent(editingEvent.id).then(() => {
+                    saveRepeatedEvents(repeatedEvents);
+                  });
+                } else {
+                  // 새로운 반복 일정 생성
+                  saveRepeatedEvents(repeatedEvents);
+                }
               } else {
-                // 기존 단일 일정 저장 또는 반복 일정 수정 시 단일 일정으로 변경
-                saveEvent({
-                  id: editingEvent ? editingEvent.id : undefined,
-                  title,
-                  date,
-                  startTime,
-                  endTime,
-                  description,
-                  location,
-                  category,
-                  repeat: {
-                    type: editingEvent ? 'none' : isRepeating ? repeatType : 'none', // 수정 시에는 단일 일정으로
-                    interval: repeatInterval,
-                    endDate: repeatEndDate || undefined,
-                  },
-                  notificationTime,
-                });
+                // 단일 일정 저장 (새로 생성하거나 반복 일정을 단일로 수정)
+                if (editingEvent && editingEvent.repeat?.type !== 'none') {
+                  // 반복 일정을 단일 일정으로 수정하는 경우
+                  saveEvent({
+                    id: editingEvent.id,
+                    title,
+                    date,
+                    startTime,
+                    endTime,
+                    description,
+                    location,
+                    category,
+                    repeat: {
+                      type: 'none',
+                      interval: repeatInterval,
+                      endDate: repeatEndDate || undefined,
+                    },
+                    notificationTime,
+                  });
+                } else {
+                  // 일반적인 단일 일정 저장
+                  saveEvent({
+                    id: editingEvent ? editingEvent.id : undefined,
+                    title,
+                    date,
+                    startTime,
+                    endTime,
+                    description,
+                    location,
+                    category,
+                    repeat: {
+                      type: isRepeating ? repeatType : 'none',
+                      interval: repeatInterval,
+                      endDate: repeatEndDate || undefined,
+                    },
+                    notificationTime,
+                  });
+                }
               }
             }}
           >
