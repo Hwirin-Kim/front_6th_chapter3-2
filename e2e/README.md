@@ -60,8 +60,15 @@ pnpm test:e2e:debug
 - Firefox
 - WebKit (Safari)
 
+## CI/CD 지원
+
+- GitHub Actions에서 자동으로 실행됩니다.
+- CI 환경에서는 GitHub reporter를 사용합니다.
+- 실패 시 Playwright 리포트가 아티팩트로 저장됩니다.
+
 ## 주의사항
 
 - E2E 테스트 실행 시 개발 서버가 자동으로 시작됩니다.
 - 테스트는 `http://localhost:5173`에서 실행됩니다.
 - CI 환경에서는 더 안정적인 설정으로 동작합니다.
+- TypeScript 타입 체크를 위한 전용 설정 파일(`tsconfig.playwright.json`) 사용

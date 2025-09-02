@@ -1,15 +1,15 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 test.describe('캘린더 앱 E2E 테스트', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }: { page: Page }) => {
     // 애플리케이션으로 이동
     await page.goto('/');
 
     // 일정 로딩 완료 대기
-    await page.waitForSelector('text=일정 로딩 완료!');
+    await page.waitForSelector('text=일정 로딩 완료!', { timeout: 10000 });
   });
 
-  test('기본 UI 요소들이 정상적으로 표시된다', async ({ page }) => {
+  test('기본 UI 요소들이 정상적으로 표시된다', async ({ page }: { page: Page }) => {
     // 주요 UI 요소들이 표시되는지 확인
     await expect(page.getByRole('heading', { name: '일정 추가' })).toBeVisible();
     await expect(page.getByRole('heading', { name: '일정 보기' })).toBeVisible();
@@ -18,7 +18,7 @@ test.describe('캘린더 앱 E2E 테스트', () => {
     await expect(page.locator('input[placeholder="검색어를 입력하세요"]')).toBeVisible();
   });
 
-  test('일정 폼의 모든 입력 필드가 정상적으로 작동한다', async ({ page }) => {
+  test('일정 폼의 모든 입력 필드가 정상적으로 작동한다', async ({ page }: { page: Page }) => {
     // 일정 폼 입력 테스트
     await page.fill('input[id="title"]', '테스트 회의');
     await page.fill('input[id="date"]', '2025-10-15');
@@ -40,7 +40,7 @@ test.describe('캘린더 앱 E2E 테스트', () => {
     await expect(page.locator('input[id="location"]')).toHaveValue('테스트 장소');
   });
 
-  test('반복 일정 설정 UI가 정상적으로 작동한다', async ({ page }) => {
+  test('반복 일정 설정 UI가 정상적으로 작동한다', async ({ page }: { page: Page }) => {
     // 반복 일정 체크박스 클릭
     await page.check('input[type="checkbox"]');
 
@@ -69,7 +69,7 @@ test.describe('캘린더 앱 E2E 테스트', () => {
     await expect(page.locator('text=개의 반복 일정이 생성됩니다.')).toBeVisible();
   });
 
-  test('뷰 전환이 정상적으로 작동한다', async ({ page }) => {
+  test('뷰 전환이 정상적으로 작동한다', async ({ page }: { page: Page }) => {
     // 기본적으로 월별 뷰가 표시되는지 확인
     await expect(page.locator('[data-testid="month-view"]')).toBeVisible();
 
@@ -84,7 +84,7 @@ test.describe('캘린더 앱 E2E 테스트', () => {
     await expect(page.locator('[data-testid="month-view"]')).toBeVisible();
   });
 
-  test('달력 네비게이션이 정상적으로 작동한다', async ({ page }) => {
+  test('달력 네비게이션이 정상적으로 작동한다', async ({ page }: { page: Page }) => {
     // 다음 달로 이동
     await page.click('[aria-label="Next"]');
 
@@ -95,7 +95,7 @@ test.describe('캘린더 앱 E2E 테스트', () => {
     await expect(page.locator('[data-testid="month-view"]')).toBeVisible();
   });
 
-  test('검색 기능이 정상적으로 작동한다', async ({ page }) => {
+  test('검색 기능이 정상적으로 작동한다', async ({ page }: { page: Page }) => {
     const searchInput = page.locator('input[placeholder="검색어를 입력하세요"]');
 
     // 검색어 입력
